@@ -51,6 +51,7 @@ final class ChatViewController: UIViewController {
         setupChatInputView()
         setupScrollView()
         setupChatHeaderIfNeeded()
+        setupTapGesture()
         presenter?.viewDidLoad()
     }
     
@@ -153,7 +154,7 @@ private extension ChatViewController {
         NSLayoutConstraint.activate([
             chatInputView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             chatInputView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            chatInputView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            chatInputView.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
             chatInputView.heightAnchor.constraint(equalToConstant: Constants.inputHeight)
         ])
     }
@@ -171,6 +172,15 @@ private extension ChatViewController {
             scrollView.bottomAnchor.constraint(equalTo: chatInputView?.topAnchor ?? view.safeAreaLayoutGuide.bottomAnchor)
         ])
         setupScrollViewBackground()
+    }
+    
+    func setupTapGesture() {
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleTap))
+        scrollView.addGestureRecognizer(tapGesture)
+    }
+    
+    @objc func handleTap() {
+        view.endEditing(true)
     }
 }
 
