@@ -51,9 +51,12 @@ final class Components {
         titleLabel.textAlignment = .center
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         
-        let topBtnsAction = UIAction { [weak self] _ in
-            guard let self else { return }
-            router.noAction()
+        let leftAction = UIAction { _ in
+            leftButtonAction()
+        }
+        
+        let rightAction = UIAction { _ in
+            rightButtonAction()
         }
         
         let leftButton = UIButton(type: .system)
@@ -61,14 +64,14 @@ final class Components {
         leftButton.titleLabel?.font = UIFont.systemFont(ofSize: 17)
         leftButton.setTitleColor(.systemBlue, for: .normal)
         leftButton.translatesAutoresizingMaskIntoConstraints = false
-        leftButton.addAction(topBtnsAction, for: .touchUpInside)
+        leftButton.addAction(leftAction, for: .touchUpInside) // Вешаем правильный экшн
         
         let rightButton = UIButton(type: .system)
         let composeImage = UIImage(systemName: "square.and.pencil")
         rightButton.setImage(composeImage, for: .normal)
         rightButton.tintColor = .systemBlue
         rightButton.translatesAutoresizingMaskIntoConstraints = false
-        rightButton.addAction(topBtnsAction, for: .touchUpInside)
+        rightButton.addAction(rightAction, for: .touchUpInside) // Вешаем правильный экшн
         
         
         headerView.addSubview(titleLabel)
@@ -148,8 +151,6 @@ final class Components {
         stackView.distribution = .fillEqually
         stackView.translatesAutoresizingMaskIntoConstraints = false
         
-        var currentSelectedIndex = selectedIndex
-        
         for tabType in TabType.allCases {
             let button = createTabBarButton(
                 iconName: tabType.iconName,
@@ -160,8 +161,6 @@ final class Components {
             
             let buttonAction = UIAction { _ in
                 updateButtonSelection(in: stackView, selectedIndex: tabType.rawValue)
-                currentSelectedIndex = tabType.rawValue
-                
                 tabSelectAction(tabType.rawValue)
                 handleTabSelection(tabType: tabType)
             }
@@ -236,20 +235,28 @@ final class Components {
     }
     
     //MARK: - Chat view header
-    func createChatHeader(with chatModel: ChatListModel) -> UIView {
+    func createChatHeader(with chatModel: ChatList) -> UIView {
         
         let headerView = UIView()
         headerView.backgroundColor = .appHeaderBar
         headerView.translatesAutoresizingMaskIntoConstraints = false
         
         let backButton = UIButton(type: .system)
-        let backImage = UIImage(systemName: "chevron.left")
-        backButton.setImage(backImage, for: .normal)
-        backButton.setTitle("Chats", for: .normal)
+        
+        var config = UIButton.Configuration.plain()
+        config.image = UIImage(systemName: "chevron.left")
+        config.title = "Chats"
+        config.imagePadding = 5
+        config.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: -8, bottom: 0, trailing: 0)
+        
+        config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+            var outgoing = incoming
+            outgoing.font = UIFont.systemFont(ofSize: 17)
+            return outgoing
+        }
+        
+        backButton.configuration = config
         backButton.tintColor = .systemBlue
-        backButton.titleLabel?.font = UIFont.systemFont(ofSize: 17)
-        backButton.semanticContentAttribute = .forceLeftToRight
-        backButton.imageEdgeInsets = UIEdgeInsets(top: 0, left: -5, bottom: 0, right: 5)
         backButton.translatesAutoresizingMaskIntoConstraints = false
         
         let backAction = UIAction { _ in
@@ -267,7 +274,7 @@ final class Components {
         avatarImageView.contentMode = .scaleAspectFill
         avatarImageView.translatesAutoresizingMaskIntoConstraints = false
         
-        if let avatarImage = UIImage(named: chatModel.avatar) {
+        if let avatarImage = UIImage(named: chatModel.avatar ?? "") {
             avatarImageView.image = avatarImage
         } else {
             avatarImageView.image = UIImage(systemName: "person.circle.fill")
@@ -315,7 +322,7 @@ final class Components {
         
         return headerView
     }
-
+    
     private func generateLastSeenStatus(from messages: [MessageModel]) -> String {
         guard let lastMessage = messages.last else {
             return "last seen recently"
@@ -339,12 +346,11 @@ final class Components {
         }
     }
     
-    //MARK: - Chat bottom bar
+    // MARK: - Chat bottom bar
     func createChatBottomBar(
         attachmentAction: UIAction? = nil,
-        sendAction: ((String) -> Void)? = nil,
-        voiceAction: UIAction? = nil,
-        stickerAction: UIAction? = nil
+        sendAction: ((String, String) -> Void)? = nil,
+        voiceAction: UIAction? = nil
     ) -> UIView {
         
         let bottomView = UIView()
@@ -370,14 +376,14 @@ final class Components {
         msgField.backgroundColor = .clear
         msgField.translatesAutoresizingMaskIntoConstraints = false
         
-        let stickerButton = UIButton(type: .system, primaryAction: stickerAction)
-        stickerButton.setImage(UIImage(systemName: "face.smiling"), for: .normal)
-        stickerButton.tintColor = .appBottomBtns
-        stickerButton.frame = CGRect(x: 0, y: 0, width: 30, height: 30)
+        let roleSwitch = UISwitch()
+        roleSwitch.isOn = true
+        roleSwitch.onTintColor = .systemBlue
+        roleSwitch.transform = CGAffineTransform(scaleX: 0.7, y: 0.7)
         
-        let rightViewContainer = UIView(frame: CGRect(x: 0, y: 0, width: 40, height: 30))
-        rightViewContainer.addSubview(stickerButton)
-        stickerButton.center = CGPoint(x: 20, y: 15)
+        let rightViewContainer = UIView(frame: CGRect(x: 0, y: 0, width: 60, height: 30))
+        rightViewContainer.addSubview(roleSwitch)
+        roleSwitch.center = CGPoint(x: 30, y: 15)
         
         msgField.rightView = rightViewContainer
         msgField.rightViewMode = .always
@@ -403,7 +409,11 @@ final class Components {
         let micBtnAction = UIAction { _ in
             let hasText = !(msgField.text?.isEmpty ?? true)
             if hasText, let text = msgField.text {
-                sendAction?(text)
+                
+                let role = roleSwitch.isOn ? "user" : "friend"
+                
+                sendAction?(text, role)
+                
                 msgField.text = ""
                 updateButtonState()
             } else {

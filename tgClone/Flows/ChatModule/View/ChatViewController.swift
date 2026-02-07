@@ -10,7 +10,7 @@ import UIKit
 // MARK: - Chat Protocols
 
 protocol ChatViewProtocol: AnyObject {
-    func displayMessages(_ messages: [MessageModel])
+    func displayMessages(_ messages: [Chat])
     func showError(_ error: String)
     func updateScrollContent()
 }
@@ -25,8 +25,8 @@ final class ChatViewController: UIViewController {
     private let scrollView = UIScrollView()
     private var chatHeader: UIView?
     private var chatInputView: UIView?
-    private var messages: [MessageModel] = []
-    private var chatModel: ChatListModel?
+    private var messages: [Chat] = []
+    private var chatModel: ChatList?
     
     // MARK: - Constants
     
@@ -56,7 +56,7 @@ final class ChatViewController: UIViewController {
     
     // MARK: - Configuration
     
-    func configure(with presenter: ChatPresenterProtocol, chatModel: ChatListModel) {
+    func configure(with presenter: ChatPresenterProtocol, chatModel: ChatList) {
         self.presenter = presenter
         self.chatModel = chatModel
     }
@@ -69,6 +69,23 @@ final class ChatViewController: UIViewController {
 // MARK: - Private Methods
 
 private extension ChatViewController {
+    
+    func scrollToBottomIfNeeded() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            let contentHeight = self.scrollView.contentSize.height
+            let scrollViewHeight = self.scrollView.bounds.height
+            
+            if contentHeight > scrollViewHeight {
+                let bottomOffset = CGPoint(
+                    x: 0,
+                    y: contentHeight - scrollViewHeight + self.scrollView.adjustedContentInset.bottom
+                )
+                self.scrollView.setContentOffset(bottomOffset, animated: false)
+            }
+        }
+    }
     
     func setupChatHeaderIfNeeded() {
         guard let chatModel = self.chatModel,
@@ -118,21 +135,16 @@ private extension ChatViewController {
             self?.presenter.didTapAttachment()
         }
         
-        let stickerAction = UIAction() { [weak self] _ in
-              self?.presenter.didTapSticker()
-          }
-        
         let voiceAction = UIAction() { [weak self] _ in
             self?.presenter.didTapVoice()
         }
         
         chatInputView = Components.shared.createChatBottomBar(
             attachmentAction: attachmentAction,
-            sendAction: { [weak self] text in
-                self?.presenter.didSendMessage(text)
+            sendAction: { [weak self] text, role in
+                self?.presenter.didSendMessage(text, role: role)
             },
-            voiceAction: voiceAction,
-            stickerAction: stickerAction
+            voiceAction: voiceAction
         )
         guard let chatInputView = chatInputView else { return }
         
@@ -166,9 +178,10 @@ private extension ChatViewController {
 
 private extension ChatViewController {
     
-    func createBubbleView(for message: MessageModel) -> UIView {
-        let bubble = BubbleView(role: message.role)
-        let label = createMessageLabel(with: message.text)
+    func createBubbleView(for message: Chat) -> UIView {
+        let role: ChatRoles = (message.role == "user") ? .user : .friend
+        let bubble = BubbleView(role: role)
+        let label = createMessageLabel(with: message.text ?? "")
         
         bubble.addSubview(label)
         setupLabelConstraints(label, in: bubble)
@@ -199,7 +212,7 @@ private extension ChatViewController {
 
 private extension ChatViewController {
     
-    func calculateBubbleSize(for message: MessageModel) -> CGSize {
+    func calculateBubbleSize(for message: Chat) -> CGSize {
         let bubbleWidth = min(view.bounds.width * Constants.bubbleMaxWidthRatio, Constants.bubbleMaxWidth)
         let targetSize = CGSize(
             width: bubbleWidth - Constants.labelInsets.left - Constants.labelInsets.right,
@@ -217,10 +230,10 @@ private extension ChatViewController {
         return CGSize(width: bubbleWidth, height: totalHeight)
     }
     
-    func calculateBubblePosition(for message: MessageModel, width: CGFloat) -> CGFloat {
-        return message.role == .user
-            ? view.bounds.width - width - Constants.sideMargin
-            : Constants.sideMargin
+    func calculateBubblePosition(for message: Chat, width: CGFloat) -> CGFloat {
+        return message.role == "user"
+        ? view.bounds.width - width - Constants.sideMargin
+        : Constants.sideMargin
     }
 }
 
@@ -266,9 +279,10 @@ private extension ChatViewController {
 // MARK: - ChatViewProtocol
 
 extension ChatViewController: ChatViewProtocol {
-    func displayMessages(_ messages: [MessageModel]) {
+    func displayMessages(_ messages: [Chat]) {
         self.messages = messages
         layoutMessages()
+        scrollToBottomIfNeeded()
     }
     
     func showError(_ error: String) {

@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import CoreData
 
 // MARK: - Chat Presenter Protocol
 
@@ -13,7 +14,7 @@ protocol ChatPresenterProtocol: AnyObject {
     var view: ChatViewProtocol? { get set }
     func viewDidLoad()
     func didTapAttachment()
-    func didSendMessage(_ text: String)
+    func didSendMessage(_ text: String, role: String)
     func didTapVoice()
     func didTapSticker()
 }
@@ -25,12 +26,13 @@ final class ChatPresenter: ChatPresenterProtocol {
     // MARK: - Properties
     
     weak var view: ChatViewProtocol?
-    private var messages: [MessageModel]
+    private var messages: [Chat] = []
+    private let currentChat: ChatList
     
     // MARK: - Initialization
     
-    init(messages: [MessageModel]) {
-        self.messages = messages
+    init(chat: ChatList) {
+        self.currentChat = chat
     }
 }
 
@@ -38,17 +40,23 @@ final class ChatPresenter: ChatPresenterProtocol {
 
 extension ChatPresenter {
     func viewDidLoad() {
+        fetchMessages()
+    }
+    
+    private func fetchMessages() {
+        self.messages = CoreDataManager.shared.fetchMessages(for: currentChat)
         view?.displayMessages(messages)
     }
 }
-
 // MARK: - Message Actions
 
 extension ChatPresenter {
-    func didSendMessage(_ text: String) {
-        let newMessage = MessageModel(role: .user, text: text, date: Date())
-        messages.append(newMessage)
-        view?.displayMessages(messages)
+    func didSendMessage(_ text: String, role: String) {
+        guard !text.isEmpty else { return }
+        
+        CoreDataManager.shared.createMessage(text: text, role: role, for: currentChat)
+        fetchMessages()
+        
         view?.updateScrollContent()
     }
 }

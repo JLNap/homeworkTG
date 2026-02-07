@@ -8,13 +8,19 @@
 import UIKit
 
 final class BubbleView: UIView {
-    var isFromCurrentUser: Bool = false {
+    
+    var role: ChatRoles = .friend {
         didSet { setNeedsDisplay() }
     }
 
-    convenience init(role: ChatRoles) {
-        self.init(frame: .zero)
-        self.isFromCurrentUser = (role == .user)
+    init(role: ChatRoles) {
+        super.init(frame: .zero)
+        self.role = role
+        self.backgroundColor = .clear
+    }
+    
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
         self.backgroundColor = .clear
     }
 
@@ -22,8 +28,10 @@ final class BubbleView: UIView {
         let radius: CGFloat = 10
         let tailWidth: CGFloat = 6
         
+        let isUser = (role == .user)
+        
         let bubbleRect: CGRect
-        if isFromCurrentUser {
+        if isUser {
             bubbleRect = CGRect(x: 0, y: 0, width: rect.width - tailWidth, height: rect.height)
         } else {
             bubbleRect = CGRect(x: tailWidth, y: 0, width: rect.width - tailWidth, height: rect.height)
@@ -31,7 +39,7 @@ final class BubbleView: UIView {
         
         let path = UIBezierPath()
         
-        if isFromCurrentUser {
+        if isUser {
             path.move(to: CGPoint(x: radius, y: 0))
             path.addLine(to: CGPoint(x: bubbleRect.width - radius, y: 0))
             path.addArc(withCenter: CGPoint(x: bubbleRect.width - radius, y: radius),
@@ -39,6 +47,7 @@ final class BubbleView: UIView {
                         startAngle: -CGFloat.pi/2,
                         endAngle: 0,
                         clockwise: true)
+            
             path.addLine(to: CGPoint(x: bubbleRect.width, y: bubbleRect.height - radius - 8))
             path.addCurve(to: CGPoint(x: rect.width, y: bubbleRect.height - 6),
                           controlPoint1: CGPoint(x: bubbleRect.width + 2, y: bubbleRect.height - radius - 6),
@@ -46,6 +55,7 @@ final class BubbleView: UIView {
             path.addCurve(to: CGPoint(x: bubbleRect.width, y: bubbleRect.height - radius + 2),
                           controlPoint1: CGPoint(x: rect.width - 1, y: bubbleRect.height - 4),
                           controlPoint2: CGPoint(x: bubbleRect.width + 2, y: bubbleRect.height - radius + 4))
+            
             path.addArc(withCenter: CGPoint(x: bubbleRect.width - radius, y: bubbleRect.height - radius),
                         radius: radius, startAngle: 0,
                         endAngle: CGFloat.pi/2,
@@ -60,6 +70,7 @@ final class BubbleView: UIView {
                         radius: radius, startAngle: CGFloat.pi,
                         endAngle: -CGFloat.pi/2,
                         clockwise: true)
+            
         } else {
             path.move(to: CGPoint(x: tailWidth + radius, y: 0))
             path.addLine(to: CGPoint(x: rect.width - radius, y: 0))
@@ -77,6 +88,7 @@ final class BubbleView: UIView {
                         radius: radius, startAngle: CGFloat.pi/2,
                         endAngle: CGFloat.pi,
                         clockwise: true)
+            
             path.addLine(to: CGPoint(x: tailWidth, y: rect.height - radius + 2))
             path.addCurve(to: CGPoint(x: 0, y: rect.height - 6),
                           controlPoint1: CGPoint(x: tailWidth - 2, y: rect.height - radius + 4),
@@ -84,6 +96,7 @@ final class BubbleView: UIView {
             path.addCurve(to: CGPoint(x: tailWidth, y: rect.height - radius - 8),
                           controlPoint1: CGPoint(x: 1, y: rect.height - 8),
                           controlPoint2: CGPoint(x: tailWidth - 2, y: rect.height - radius - 6))
+            
             path.addArc(withCenter: CGPoint(x: tailWidth + radius, y: radius),
                         radius: radius, startAngle: CGFloat.pi,
                         endAngle: -CGFloat.pi/2,
@@ -92,15 +105,11 @@ final class BubbleView: UIView {
         
         path.close()
         
-        let bubbleColor: UIColor = isFromCurrentUser
+        let bubbleColor: UIColor = isUser
         ? UIColor(red: 0.83, green: 0.98, blue: 0.87, alpha: 1.0)
         : .white
         
         bubbleColor.setFill()
         path.fill()
-        
-        UIColor.systemGray4.setStroke()
-        path.lineWidth = 0.5
-        path.stroke()
     }
 }

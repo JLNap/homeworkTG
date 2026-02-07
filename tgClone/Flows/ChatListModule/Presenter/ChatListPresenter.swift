@@ -7,103 +7,79 @@
 
 import UIKit
 
-// MARK: - Chat List Protocol
-
 protocol ChatListPresenterProtocol: AnyObject {
     func viewDidLoad()
     func didSelectChat(at index: Int)
-    func didRequestContextMenu(for index: Int) -> ChatListModel
+    func didRequestContextMenu(for index: Int) -> ChatList
     func handleSwipeAction(_ action: SwipeAction, at index: Int)
     func didTapCompose()
     func didSelectTab(at index: Int)
     func didSearchTextChange(_ text: String)
 }
 
-// MARK: - Swipe Actions
-
 enum SwipeAction {
     case mute, delete, archive, unread, pin
 }
 
-// MARK: - Chat List Presenter
-
 final class ChatListPresenter: ChatListPresenterProtocol {
-    
-    // MARK: - Properties
     
     weak var view: ChatListViewProtocol?
     private let networkManager: ChatNetworkManagerProtocol
     private let router: ChatListRouterProtocol
-    private var chats: [ChatListModel] = []
-    
-    // MARK: - Initialization
+    private var chats: [ChatList] = []
     
     init(networkManager: ChatNetworkManagerProtocol, router: ChatListRouterProtocol) {
         self.networkManager = networkManager
         self.router = router
     }
-}
-
-// MARK: - Lifecycle
-
-extension ChatListPresenter {
-    func viewDidLoad() {
-        view?.showLoading()
-        networkManager.fetchChatList { [weak self] result in
-            self?.view?.hideLoading()
-            switch result {
-            case .success(let chats):
-                self?.chats = chats
-                self?.view?.showChats(chats)
-            case .failure(let error):
-                self?.view?.showError(error.localizedDescription)
-            }
-        }
+    
+    private func loadChats() {
+        self.chats = CoreDataManager.shared.fetchChatLists()
+        view?.showChats(chats)
     }
 }
 
-// MARK: - Navigation
+extension ChatListPresenter {
+    func viewDidLoad() {
+        loadChats()
+    }
+}
 
 extension ChatListPresenter {
     func didSelectChat(at index: Int) {
         let selectedChat = chats[index]
-        
-        networkManager.fetchMessages(for: selectedChat.name) { [weak self] result in
-            switch result {
-            case .success(let messages):
-                self?.router.navigateToChat(with: messages, chatModel: selectedChat)
-            case .failure(let error):
-                self?.view?.showError(error.localizedDescription)
-            }
-        }
+        router.navigateToChat(chat: selectedChat)
     }
     
-    func didRequestContextMenu(for index: Int) -> ChatListModel {
+    func didRequestContextMenu(for index: Int) -> ChatList {
         return chats[index]
     }
 }
-
-// MARK: - User Actions
 
 extension ChatListPresenter {
     func handleSwipeAction(_ action: SwipeAction, at index: Int) {
         let chat = chats[index]
         switch action {
         case .mute:
-            print("Mute chat: \(chat.name)")
+            print("Mute chat: \(chat.name ?? "")")
         case .delete:
-            print("Delete chat: \(chat.name)")
+            CoreDataManager.shared.deleteChatList(chat)
+            chats.remove(at: index)
+            view?.showChats(chats)
         case .archive:
-            print("Archive chat: \(chat.name)")
+            print("Archive chat: \(chat.name ?? "")")
         case .unread:
-            print("Mark as unread: \(chat.name)")
+            print("Mark as unread: \(chat.name ?? "")")
         case .pin:
-            print("Pin chat: \(chat.name)")
+            CoreDataManager.shared.togglePin(for: chat)
+            loadChats()
         }
     }
     
     func didTapCompose() {
-        
+        router.presentNewChat { [weak self] in
+            self?.loadChats()
+        }
     }
     
     func didSelectTab(at index: Int) {

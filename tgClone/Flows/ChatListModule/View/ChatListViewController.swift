@@ -6,31 +6,27 @@
 //
 
 import UIKit
-
-// MARK: - Chat List View Protocol
+import CoreData
 
 protocol ChatListViewProtocol: AnyObject {
-    func showChats(_ chats: [ChatListModel])
+    func showChats(_ chats: [ChatList])
     func showError(_ error: String)
     func showLoading()
     func hideLoading()
 }
 
-// MARK: - Chat List View Controller
-
 final class ChatListViewController: UIViewController {
     
     enum Section { case main }
-    
-    // MARK: - Properties
     
     private var presenter: ChatListPresenterProtocol!
     private var tableView: UITableView!
     private var searchBar: UISearchBar!
     private var headerView: UIView!
     private var tabBarView: UIView!
-    private var dataSource: UITableViewDiffableDataSource<Section, ChatListModel>!
-    private var chats: [ChatListModel] = []
+    
+    private var dataSource: UITableViewDiffableDataSource<Section, ChatList>!
+    private var chats: [ChatList] = []
     
     // MARK: - Lifecycle
     
@@ -38,6 +34,11 @@ final class ChatListViewController: UIViewController {
         super.viewDidLoad()
         navigationController?.setNavigationBarHidden(true, animated: false)
         setupUI()
+        presenter.viewDidLoad()
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
         presenter.viewDidLoad()
     }
     
@@ -103,6 +104,7 @@ private extension ChatListViewController {
             headerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 5),
             headerView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -5),
+            headerView.heightAnchor.constraint(equalToConstant: 60),
             
             searchBar.topAnchor.constraint(equalTo: headerView.bottomAnchor),
             searchBar.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
@@ -125,19 +127,30 @@ private extension ChatListViewController {
 private extension ChatListViewController {
     
     func configureDataSource() {
-        dataSource = UITableViewDiffableDataSource<Section, ChatListModel>(
+        dataSource = UITableViewDiffableDataSource<Section, ChatList>(
             tableView: tableView,
             cellProvider: { tableView, indexPath, chat in
                 let cell = tableView.dequeueReusableCell(withIdentifier: "ChatListCell", for: indexPath) as! ChatListCell
                 
-                let lastMessage = chat.messages.last
-                let lastMessageText = lastMessage?.text ?? "Нет сообщений"
-                let lastMessageDate = lastMessage?.date ?? Date()
+                var lastMessageText = "Нет сообщений"
+                var lastMessageDate = chat.lastMessageDate ?? Date()
+                
+                if let messages = chat.chat?.allObjects as? [Chat], !messages.isEmpty {
+                    
+                    let sortedMessages = messages.sorted {
+                        ($0.date ?? Date.distantPast) > ($1.date ?? Date.distantPast)
+                    }
+                    
+                    if let lastMsg = sortedMessages.first {
+                        lastMessageText = lastMsg.text ?? "Сообщение"
+                        lastMessageDate = lastMsg.date ?? Date()
+                    }
+                }
                 
                 cell.configure(
-                    friendName: chat.name,
+                    friendName: chat.name ?? "No Name",
                     lastMsg: lastMessageText,
-                    avatar: chat.avatar,
+                    avatar: chat.avatar ?? "",
                     msgDate: lastMessageDate,
                     pin: chat.isPinned
                 )
@@ -147,9 +160,10 @@ private extension ChatListViewController {
     }
     
     func applySnapshot() {
-        var snapshot = NSDiffableDataSourceSnapshot<Section, ChatListModel>()
+        var snapshot = NSDiffableDataSourceSnapshot<Section, ChatList>()
         snapshot.appendSections([.main])
         snapshot.appendItems(chats)
+        snapshot.reloadItems(chats)
         dataSource.apply(snapshot, animatingDifferences: true)
     }
 }
@@ -175,24 +189,29 @@ private extension ChatListViewController {
 
 private extension ChatListViewController {
     
-    func createSwipeActions() -> [UIContextualAction] {
-        let mute = createAction(.mute, "Mute", "speaker.slash.fill", .systemOrange)
-        let delete = createAction(.delete, "Delete", "trash.fill", .systemRed)
-        let archive = createAction(.archive, "Archive", "archivebox.fill", .systemGray)
+    func createSwipeActions(for indexPath: IndexPath) -> [UIContextualAction] {
+        let mute = createAction(.mute, "Mute", "speaker.slash.fill", .systemOrange, at: indexPath)
+        let delete = createAction(.delete, "Delete", "trash.fill", .systemRed, at: indexPath)
+        let archive = createAction(.archive, "Archive", "archivebox.fill", .systemGray, at: indexPath)
         return [mute, delete, archive]
     }
     
-    func createLeadingActions() -> [UIContextualAction] {
-        let unread = createAction(.unread, "Unread", "bubble.left.fill", .systemBlue)
-        let pin = createAction(.pin, "Pin", "pin.fill", .systemGreen)
+    func createLeadingActions(for indexPath: IndexPath) -> [UIContextualAction] {
+        let chat = chats[indexPath.row]
+        let unread = createAction(.unread, "Unread", "bubble.left.fill", .systemBlue, at: indexPath)
+        
+        let isPinned = chat.isPinned
+        let pinTitle = isPinned ? "Unpin" : "Pin"
+        let pinIcon = isPinned ? "pin.slash.fill" : "pin.fill"
+        
+        let pin = createAction(.pin, pinTitle, pinIcon, .systemGreen, at: indexPath)
+        
         return [unread, pin]
     }
     
-    func createAction(_ type: SwipeAction, _ title: String, _ iconName: String, _ color: UIColor) -> UIContextualAction {
+    func createAction(_ type: SwipeAction, _ title: String, _ iconName: String, _ color: UIColor, at indexPath: IndexPath) -> UIContextualAction {
         let action = UIContextualAction(style: .normal, title: "") { [weak self] _, _, completion in
-            if let index = self?.tableView.indexPathForSelectedRow?.row {
-                self?.presenter.handleSwipeAction(type, at: index)
-            }
+            self?.presenter.handleSwipeAction(type, at: indexPath.row)
             completion(true)
         }
         
@@ -211,7 +230,7 @@ private extension ChatListViewController {
 // MARK: - ChatListViewProtocol
 
 extension ChatListViewController: ChatListViewProtocol {
-    func showChats(_ chats: [ChatListModel]) {
+    func showChats(_ chats: [ChatList]) {
         self.chats = chats
         applySnapshot()
     }
@@ -240,19 +259,36 @@ extension ChatListViewController: UITableViewDelegate {
     }
     
     func tableView(_ tableView: UITableView, contextMenuConfigurationForRowAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
+        guard indexPath.row < chats.count else { return nil }
         let chat = chats[indexPath.row]
         
         return UIContextMenuConfiguration(
             identifier: nil,
             previewProvider: {
-                ChatBuilder.build(with: chat.messages, chatModel: chat)
+                ChatBuilder.build(chat: chat)
             },
-            actionProvider: { _ in
+            actionProvider: { [weak self] _ in
+                guard let self = self else { return UIMenu(title: "", children: []) }
+                
+                let isPinned = chat.isPinned
+                let pinTitle = isPinned ? "Unpin" : "Pin"
+                let pinImageName = isPinned ? "pin.slash" : "pin"
+                
+                let pinAction = UIAction(title: pinTitle, image: UIImage(systemName: pinImageName)) { _ in
+                    self.presenter.handleSwipeAction(.pin, at: indexPath.row)
+                }
+                
                 let actions = [
-                    UIAction(title: "Mark as Unread", image: UIImage(systemName: "bubble.left")) { _ in },
-                    UIAction(title: "Pin", image: UIImage(systemName: "pin")) { _ in },
-                    UIAction(title: "Mute", image: UIImage(systemName: "speaker.slash")) { _ in },
-                    UIAction(title: "Delete", image: UIImage(systemName: "trash"), attributes: .destructive) { _ in }
+                    UIAction(title: "Mark as Unread", image: UIImage(systemName: "bubble.left")) { _ in
+                        self.presenter.handleSwipeAction(.unread, at: indexPath.row)
+                    },
+                    pinAction,
+                    UIAction(title: "Mute", image: UIImage(systemName: "speaker.slash")) { _ in
+                        self.presenter.handleSwipeAction(.mute, at: indexPath.row)
+                    },
+                    UIAction(title: "Delete", image: UIImage(systemName: "trash"), attributes: .destructive) { _ in
+                        self.presenter.handleSwipeAction(.delete, at: indexPath.row)
+                    }
                 ]
                 return UIMenu(title: "", children: actions)
             }
@@ -260,14 +296,14 @@ extension ChatListViewController: UITableViewDelegate {
     }
     
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        let actions = createSwipeActions()
+        let actions = createSwipeActions(for: indexPath)
         let configuration = UISwipeActionsConfiguration(actions: actions)
         configuration.performsFirstActionWithFullSwipe = false
         return configuration
     }
     
     func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        let actions = createLeadingActions()
+        let actions = createLeadingActions(for: indexPath)
         let configuration = UISwipeActionsConfiguration(actions: actions)
         configuration.performsFirstActionWithFullSwipe = false
         return configuration
@@ -291,3 +327,6 @@ extension ChatListViewController: UISearchBarDelegate {
         presenter.didSearchTextChange("")
     }
 }
+
+extension ChatList: @unchecked Sendable {}
+extension Chat: @unchecked Sendable {}

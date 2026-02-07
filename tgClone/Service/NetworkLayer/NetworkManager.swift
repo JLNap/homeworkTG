@@ -40,6 +40,22 @@ final class MockDataService: ChatNetworkManagerProtocol {
             messages: [
                 MessageModel(role: .friend, text: "Первый чат", date: Date()),
                 MessageModel(role: .user, text: "Тест огромных сообщенийТест огромных сообщений Тест огромных сообщений Тест огромных сообщений Тест огромных сообщений Тест огромных сообщений Тест огромных сообщений Тест огромных сообщений Тест огромных сообщений Тест огромных сообщений Тест огромных сообщений Тест огромных сообщений Тест огромных сообщений Тест огромных сообщений Тест огромных сообщений Тест огромных сообщений Тест огромных сообщений Тест огромных сообщений  ", date: Date()),
+                MessageModel(role: .friend, text: "Конец первого чата", date: Date()),
+                MessageModel(role: .friend, text: "Конец первого чата", date: Date()),
+                MessageModel(role: .friend, text: "Конец первого чата", date: Date()),
+                MessageModel(role: .friend, text: "Конец первого чата", date: Date()),
+                MessageModel(role: .friend, text: "Конец первого чата", date: Date()),
+                MessageModel(role: .friend, text: "Конец первого чата", date: Date()),
+                MessageModel(role: .friend, text: "Конец первого чата", date: Date()),
+                MessageModel(role: .friend, text: "Конец первого чата", date: Date()),
+                MessageModel(role: .friend, text: "Конец первого чата", date: Date()),
+                MessageModel(role: .friend, text: "Конец первого чата", date: Date()),
+                MessageModel(role: .friend, text: "Конец первого чата", date: Date()),
+                MessageModel(role: .friend, text: "Конец первого чата", date: Date()),
+                MessageModel(role: .friend, text: "Конец первого чата", date: Date()),
+                MessageModel(role: .friend, text: "Конец первого чата", date: Date()),
+                MessageModel(role: .friend, text: "Конец первого чата", date: Date()),
+                MessageModel(role: .friend, text: "Конец первого чата", date: Date()),
                 MessageModel(role: .friend, text: "Конец первого чата", date: Date())
             ],
             isPinned: true

@@ -25,25 +25,15 @@ final class ChatListBuilder {
 
 // MARK: - Chat Builder
 final class ChatBuilder {
-    static func build(with messages: [MessageModel], chatModel: ChatListModel) -> UIViewController {
-        let presenter = ChatPresenter(messages: messages)
+    static func build(chat: ChatList) -> UIViewController {
+        
+        let presenter = ChatPresenter(chat: chat)
         let viewController = ChatViewController()
         
-        viewController.configure(with: presenter, chatModel: chatModel)
+        viewController.configure(with: presenter, chatModel: chat)
         presenter.view = viewController
         
         return viewController
-    }
-    
-    static func build(with messages: [MessageModel]) -> UIViewController {
-        let mockChatModel = ChatListModel(
-            name: "Unknown Chat",
-            avatar: "",
-            messages: messages,
-            isPinned: false
-        )
-        
-        return build(with: messages, chatModel: mockChatModel)
     }
 }
 
